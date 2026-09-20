@@ -1,4 +1,4 @@
-vers 5
+vers 6
 
 code
 
@@ -31,7 +31,7 @@ from PySide6.QtWebEngineCore import (
 # ============================================================
 # НАСТРОЙКИ ОБНОВЛЕНИЙ
 # ============================================================
-CURRENT_VERSION = 5
+CURRENT_VERSION = 6
 
 UPDATE_URL = "https://raw.githubusercontent.com/kartemser-crypto/updatedeepseek.py/refs/heads/main/update.py"
 
@@ -64,7 +64,7 @@ TRANSLATIONS = {
         "update_error_text": "Не удалось проверить обновления:\n{err}",
         "update_close_title": "Обновление",
         "update_close_text": "Приложение закроется и запустится с новой версией.",
-        "update_apply_error": "Не удалось применить обновление:\n{e}\n\nПодробности в консоли.",
+        "update_apply_error": "Не удалось применить обновление:\n{e}",
         "save": "Сохранить",
         "cancel": "Отмена",
         "file_open": "📂 Открыть",
@@ -90,7 +90,7 @@ TRANSLATIONS = {
         "language": "Interface language:",
         "toolbar_color": "Toolbar color:",
         "update_available_title": "Update Available",
-        "update_available_text": "New version: v{v1}\nYour version: v{v2}\n\nUpdate now?\n(App will restart)",
+        "update_available_text": "New version: v{v1}\nYour version: v{v2}\n\nUpdate now?",
         "no_updates_title": "No Updates",
         "no_updates_text": "Latest version (v{v}).",
         "update_error_title": "Error",
@@ -129,51 +129,23 @@ TOOLBAR_COLORS_EN = {
 }
 
 
-# ---------- ИКОНКИ ПО ТИПУ ФАЙЛА ----------
+# ---------- ИКОНКИ ФАЙЛОВ ----------
 def get_file_icon(filename):
-    """Возвращает эмодзи-иконку по расширению файла."""
-    name = filename.lower()
-    ext = os.path.splitext(name)[1]
-
-    if ext == ".py":
-        return "🐍"      # Python
-    if ext == ".bat" or ext == ".cmd":
-        return "⚙"       # Batch
-    if ext == ".exe":
-        return "💻"      # EXE
-    if ext == ".txt":
-        return "📄"      # Текст
-    if ext == ".md":
-        return "📝"      # Markdown
-    if ext == ".pdf":
-        return "📕"      # PDF
-    if ext == ".doc" or ext == ".docx":
-        return "📘"      # Word
-    if ext == ".xls" or ext == ".xlsx":
-        return "📗"      # Excel
-    if ext == ".ppt" or ext == ".pptx":
-        return "📙"      # PowerPoint
-    if ext in (".png", ".jpg", ".jpeg", ".gif", ".bmp", ".webp", ".svg"):
-        return "🖼"       # Картинка
-    if ext in (".mp3", ".wav", ".ogg", ".flac"):
-        return "🎵"      # Аудио
-    if ext in (".mp4", ".avi", ".mkv", ".mov", ".webm"):
-        return "🎬"      # Видео
-    if ext in (".zip", ".rar", ".7z", ".tar", ".gz"):
-        return "📦"      # Архив
-    if ext == ".json":
-        return "🔧"      # JSON
-    if ext == ".xml":
-        return "📋"      # XML
-    if ext == ".html" or ext == ".htm":
-        return "🌐"      # HTML
-    if ext == ".css":
-        return "🎨"      # CSS
-    if ext == ".js":
-        return "📜"      # JS
-    if ext == ".csv":
-        return "📊"      # CSV
-    return "📄"          # По умолчанию
+    ext = os.path.splitext(filename.lower())[1]
+    icons = {
+        ".py": "🐍", ".bat": "⚙", ".cmd": "⚙", ".exe": "💻",
+        ".txt": "📄", ".md": "📝", ".pdf": "📕",
+        ".doc": "📘", ".docx": "📘", ".xls": "📗", ".xlsx": "📗",
+        ".ppt": "📙", ".pptx": "📙",
+        ".png": "🖼", ".jpg": "🖼", ".jpeg": "🖼", ".gif": "🖼",
+        ".bmp": "🖼", ".webp": "🖼", ".svg": "🖼",
+        ".mp3": "🎵", ".wav": "🎵", ".ogg": "🎵", ".flac": "🎵",
+        ".mp4": "🎬", ".avi": "🎬", ".mkv": "🎬", ".mov": "🎬",
+        ".zip": "📦", ".rar": "📦", ".7z": "📦", ".tar": "📦", ".gz": "📦",
+        ".json": "🔧", ".xml": "📋", ".html": "🌐", ".htm": "🌐",
+        ".css": "🎨", ".js": "📜", ".csv": "📊",
+    }
+    return icons.get(ext, "📄")
 
 
 # ---------- ПУТИ ----------
@@ -350,7 +322,7 @@ class MyPage(QWebEnginePage):
         return True
 
     def javaScriptConsoleMessage(self, level, message, line, source):
-        print(f"[JS] {message}")
+        pass
 
     def featurePermissionRequested(self, securityOrigin, feature):
         if feature in (
@@ -469,60 +441,81 @@ class FileCardWidget(QWidget):
         """)
 
         layout = QHBoxLayout()
-        layout.setContentsMargins(12, 10, 12, 10)
-        layout.setSpacing(12)
+        layout.setContentsMargins(10, 8, 10, 8)
+        layout.setSpacing(10)
         self.setLayout(layout)
 
-        # Иконка по типу файла или "📥" если скачивается
         icon_text = "📥" if is_downloading else get_file_icon(filename)
         icon_label = QLabel(icon_text)
-        icon_label.setStyleSheet("font-size: 24px;")
-        icon_label.setFixedWidth(32)
+        icon_label.setStyleSheet("font-size: 22px;")
+        icon_label.setFixedWidth(28)
         layout.addWidget(icon_label)
 
         info = QVBoxLayout()
         info.setSpacing(2)
 
         name_label = QLabel(filename)
-        name_label.setStyleSheet("color: #ffffff; font-size: 13px; font-weight: bold;")
+        name_label.setStyleSheet("color: #ffffff; font-size: 12px; font-weight: bold;")
+        name_label.setWordWrap(True)
         info.addWidget(name_label)
 
         meta_label = QLabel(meta)
-        meta_label.setStyleSheet("color: #888; font-size: 11px;")
+        meta_label.setStyleSheet("color: #888; font-size: 10px;")
+        meta_label.setWordWrap(True)
         info.addWidget(meta_label)
 
         layout.addLayout(info)
         layout.addStretch()
 
 
-# ---------- СПИСОК ФАЙЛОВ ----------
+# ---------- СПИСОК ФАЙЛОВ (drag-and-drop) ----------
 class FileListWidget(QListWidget):
     def __init__(self):
         super().__init__()
         self.setDragEnabled(True)
         self.setAcceptDrops(False)
         self.setSelectionMode(QListWidget.SelectionMode.ExtendedSelection)
+        self.setDragDropMode(QListWidget.DragDropMode.DragOnly)
 
     def startDrag(self, supportedActions):
-        item = self.currentItem()
-        if item is None:
-            return
-        file_path = item.data(Qt.ItemDataRole.UserRole)
-        if not file_path or not os.path.exists(file_path):
+        items = self.selectedItems()
+        if not items:
             return
 
         mime_data = QMimeData()
-        mime_data.setUrls([QUrl.fromLocalFile(file_path)])
+        urls = []
+        for item in items:
+            file_path = item.data(Qt.ItemDataRole.UserRole)
+            if file_path and os.path.exists(file_path):
+                urls.append(QUrl.fromLocalFile(file_path))
+
+        if not urls:
+            return
+
+        mime_data.setUrls(urls)
+
         drag = QDrag(self)
         drag.setMimeData(mime_data)
+
+        pixmap = QPixmap(48, 48)
+        pixmap.fill(Qt.GlobalColor.transparent)
+        painter = QPainter(pixmap)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        painter.setPen(QColor(255, 255, 255))
+        painter.setFont(QFont("Segoe UI Emoji", 32))
+        painter.drawText(pixmap.rect(), Qt.AlignmentFlag.AlignCenter, "📄")
+        painter.end()
+        drag.setPixmap(pixmap)
+
         drag.exec(Qt.DropAction.CopyAction | Qt.DropAction.MoveAction)
 
 
-# ---------- ПАНЕЛЬ ЗАГРУЗОК (внутри окна) ----------
+# ---------- ПАНЕЛЬ ЗАГРУЗОК ----------
 class DownloadsPanel(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.downloads = {}
+        self.setMinimumWidth(250)
 
         self.setStyleSheet("""
             QWidget { background: #1e1e1e; color: #ddd; font-family: 'Segoe UI', Arial, sans-serif; }
@@ -530,15 +523,15 @@ class DownloadsPanel(QWidget):
             QPushButton {
                 background: #333; color: #fff;
                 border: none; border-radius: 6px;
-                padding: 6px 12px; font-size: 12px;
+                padding: 6px 10px; font-size: 11px;
             }
             QPushButton:hover { background: #444; }
             QListWidget { background: #1e1e1e; border: none; outline: none; }
             QListWidget::item { background: transparent; border: none; padding: 0px; }
-            QListWidget::item:selected { background: transparent; }
+            QListWidget::item:selected { background: #333; border-radius: 6px; }
             QProgressBar {
                 background: #2a2a2a; border: none; border-radius: 4px;
-                height: 8px; text-align: center; color: transparent;
+                height: 6px; text-align: center; color: transparent;
             }
             QProgressBar::chunk {
                 background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
@@ -548,43 +541,41 @@ class DownloadsPanel(QWidget):
         """)
 
         layout = QVBoxLayout()
-        layout.setContentsMargins(12, 8, 12, 8)
+        layout.setContentsMargins(10, 10, 10, 10)
         layout.setSpacing(8)
         self.setLayout(layout)
 
-        # Заголовок панели
         header = QHBoxLayout()
 
         title = QLabel(t("downloads_title"))
-        title.setStyleSheet("font-size: 15px; font-weight: bold; color: #fff;")
+        title.setStyleSheet("font-size: 14px; font-weight: bold; color: #fff;")
         header.addWidget(title)
-
         header.addStretch()
 
         refresh_btn = QPushButton(t("refresh"))
-        refresh_btn.setFixedSize(32, 32)
+        refresh_btn.setFixedSize(30, 30)
+        refresh_btn.setToolTip("Обновить")
         refresh_btn.clicked.connect(self.refresh_from_folder)
         header.addWidget(refresh_btn)
 
-        open_btn = QPushButton(t("open_folder"))
-        open_btn.clicked.connect(self.open_downloads_folder)
-        header.addWidget(open_btn)
-
         clear_btn = QPushButton(t("clear"))
-        clear_btn.setFixedSize(32, 32)
+        clear_btn.setFixedSize(30, 30)
+        clear_btn.setToolTip("Очистить список")
         clear_btn.clicked.connect(self.clear_list)
         header.addWidget(clear_btn)
 
         layout.addLayout(header)
 
-        # Список
+        open_btn = QPushButton(t("open_folder"))
+        open_btn.clicked.connect(self.open_downloads_folder)
+        layout.addWidget(open_btn)
+
         self.list_widget = FileListWidget()
         self.list_widget.itemDoubleClicked.connect(self.on_item_double_click)
         self.list_widget.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.list_widget.customContextMenuRequested.connect(self.show_context_menu)
         layout.addWidget(self.list_widget, 1)
 
-        # Прогресс текущей загрузки
         self.progress_container = QFrame()
         self.progress_container.setStyleSheet("background: #252525; border-radius: 6px; padding: 6px;")
         progress_layout = QVBoxLayout()
@@ -593,7 +584,8 @@ class DownloadsPanel(QWidget):
         self.progress_container.setLayout(progress_layout)
 
         self.progress_label = QLabel(t("downloads_empty"))
-        self.progress_label.setStyleSheet("color: #888; font-size: 11px;")
+        self.progress_label.setStyleSheet("color: #888; font-size: 10px;")
+        self.progress_label.setWordWrap(True)
         progress_layout.addWidget(self.progress_label)
 
         self.progress_bar = QProgressBar()
@@ -627,12 +619,12 @@ class DownloadsPanel(QWidget):
         filename = os.path.basename(path)
         size = os.path.getsize(path)
         size_str = self.format_size(size)
-        date_str = datetime.fromtimestamp(os.path.getmtime(path)).strftime("%d.%m.%Y %H:%M")
+        date_str = datetime.fromtimestamp(os.path.getmtime(path)).strftime("%d.%m %H:%M")
 
         card = FileCardWidget(filename, f"{size_str}  •  {date_str}", path, is_downloading=False)
         item = QListWidgetItem(self.list_widget)
         item.setData(Qt.ItemDataRole.UserRole, path)
-        item.setSizeHint(QSize(0, 55))
+        item.setSizeHint(QSize(0, 50))
 
         self.list_widget.addItem(item)
         self.list_widget.setItemWidget(item, card)
@@ -687,10 +679,8 @@ class DownloadsPanel(QWidget):
                     QMessageBox.warning(self, "Ошибка", f"{e}")
 
     def add_download(self, download: QWebEngineDownloadRequest, path: str):
-        """Добавляет активную загрузку в панель."""
         filename = os.path.basename(path)
 
-        # Убираем старую запись если есть
         for i in range(self.list_widget.count()):
             item = self.list_widget.item(i)
             if item.data(Qt.ItemDataRole.UserRole) == path:
@@ -700,7 +690,7 @@ class DownloadsPanel(QWidget):
         card = FileCardWidget(filename, t("download_in_progress"), path, is_downloading=True)
         item = QListWidgetItem()
         item.setData(Qt.ItemDataRole.UserRole, path)
-        item.setSizeHint(QSize(0, 55))
+        item.setSizeHint(QSize(0, 50))
         self.list_widget.insertItem(0, item)
         self.list_widget.setItemWidget(item, card)
 
@@ -738,7 +728,6 @@ class DownloadsPanel(QWidget):
                 total = download.totalBytes()
                 filename = os.path.basename(path)
 
-                # Меняем иконку на реальную
                 icon_label = card.layout().itemAt(0).widget()
                 if icon_label:
                     icon_label.setText(get_file_icon(filename))
@@ -747,7 +736,7 @@ class DownloadsPanel(QWidget):
                 if info_layout and info_layout.count() >= 2:
                     meta = info_layout.itemAt(1).widget()
                     if meta:
-                        date_str = datetime.now().strftime("%d.%m.%Y %H:%M")
+                        date_str = datetime.now().strftime("%d.%m %H:%M")
                         meta.setText(f"{self.format_size(total)}  •  {date_str}")
 
                 self.progress_container.setVisible(False)
@@ -780,7 +769,7 @@ class DeepSeekApp(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle(f"DeepSeek App — v{CURRENT_VERSION}")
-        self.resize(1300, 850)
+        self.resize(1400, 850)
 
         if os.path.exists(ICON_PATH):
             self.setWindowIcon(QIcon(ICON_PATH))
@@ -814,17 +803,24 @@ class DeepSeekApp(QMainWindow):
         self.browser.setUrl(QUrl("https://chat.deepseek.com/"))
         self.browser.setContextMenuPolicy(Qt.ContextMenuPolicy.DefaultContextMenu)
 
-        # Панель загрузок (внутри окна)
+        # Панель загрузок
         self.downloads_panel = DownloadsPanel(self)
-        self.downloads_panel.setMaximumHeight(280)
-        self.downloads_panel.setVisible(False)  # скрыта по умолчанию
+        self.downloads_panel.setVisible(True)
 
-        # Сплиттер: браузер + панель загрузок
-        self.splitter = QSplitter(Qt.Orientation.Vertical)
-        self.splitter.addWidget(self.browser)
-        self.splitter.addWidget(self.downloads_panel)
-        self.splitter.setSizes([600, 200])
-        self.splitter.setStyleSheet("QSplitter::handle { background: #333; height: 3px; }")
+        # СПЛИТТЕР: [панель загрузок СЛЕВА | браузер СПРАВА]
+        self.splitter = QSplitter(Qt.Orientation.Horizontal)
+        self.splitter.addWidget(self.downloads_panel)   # ЛЕВО — загрузки
+        self.splitter.addWidget(self.browser)            # ПРАВО — браузер
+        self.splitter.setSizes([320, 1080])
+        self.splitter.setStyleSheet("""
+            QSplitter::handle {
+                background: #333;
+                width: 4px;
+            }
+            QSplitter::handle:hover {
+                background: #4a90e2;
+            }
+        """)
         self.setCentralWidget(self.splitter)
 
         # Тулбар
@@ -903,11 +899,10 @@ class DeepSeekApp(QMainWindow):
         self.toolbar_actions["settings"].setText(t("settings"))
 
     def toggle_downloads(self):
-        """Показать/скрыть панель загрузок ВНУТРИ окна."""
+        """Показать/скрыть панель загрузок (слева)."""
         visible = self.downloads_panel.isVisible()
         self.downloads_panel.setVisible(not visible)
         if not visible:
-            # При открытии — обновляем список
             self.downloads_panel.refresh_from_folder()
 
     def open_settings(self):
@@ -926,10 +921,7 @@ class DeepSeekApp(QMainWindow):
             self.apply_toolbar_style()
             self.refresh_toolbar_text()
 
-            QMessageBox.information(
-                self, "OK",
-                "Настройки сохранены."
-            )
+            QMessageBox.information(self, "OK", "Настройки сохранены.")
 
     # ---------- ОБНОВЛЕНИЯ ----------
     def check_updates(self, manual=False):
@@ -1018,10 +1010,9 @@ del "%~f0"
         self.download_count += 1
         self.toolbar_actions["downloads"].setText(f"{t('downloads')} ({self.download_count})")
 
-        # Добавляем в панель и автоматически показываем её
         self.downloads_panel.add_download(download, save_path)
 
-        # Если панель скрыта — показываем её
+        # Показываем панель, если скрыта
         if not self.downloads_panel.isVisible():
             self.toggle_downloads()
 
