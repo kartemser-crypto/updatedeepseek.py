@@ -1,4 +1,4 @@
-vers 4
+vers 5
 
 code
 
@@ -31,7 +31,7 @@ from PySide6.QtWebEngineCore import (
 # ============================================================
 # НАСТРОЙКИ ОБНОВЛЕНИЙ
 # ============================================================
-CURRENT_VERSION = 1
+CURRENT_VERSION = 5
 
 UPDATE_URL = "https://raw.githubusercontent.com/kartemser-crypto/updatedeepseek.py/refs/heads/main/update.py"
 
