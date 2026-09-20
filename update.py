@@ -1,4 +1,4 @@
-vers 7
+vers 8
 
 code
 
@@ -33,7 +33,7 @@ from PySide6.QtWebEngineCore import (
 # ============================================================
 # НАСТРОЙКИ ОБНОВЛЕНИЙ
 # ============================================================
-CURRENT_VERSION = 7
+CURRENT_VERSION = 8
 
 UPDATE_URL = "https://raw.githubusercontent.com/kartemser-crypto/updatedeepseek.py/refs/heads/main/update.py"
 
@@ -71,6 +71,11 @@ TRANSLATIONS = {
         "mod_error": "Ошибка в моде '{name}':\n{e}",
         "mod_loaded": "Мод загружен: {name}",
         "mod_deleted": "Мод удалён: {name}",
+        "restart_needed_title": "Требуется перезагрузка",
+        "restart_needed_text": "Изменения в модах вступят в силу после перезапуска приложения.\n\nПерезапустить сейчас?",
+        "restart_now": "🔄 Перезапустить сейчас",
+        "restart_later": "Позже",
+        "restarting": "Перезапуск...",
         "update_available_title": "Доступно обновление",
         "update_available_text": "Найдена новая версия: v{v1}\nВаша версия: v{v2}\n\nОбновить приложение?\n(Приложение закроется и запустится с новой версией)",
         "no_updates_title": "Обновлений нет",
@@ -117,6 +122,11 @@ TRANSLATIONS = {
         "mod_error": "Mod error '{name}':\n{e}",
         "mod_loaded": "Mod loaded: {name}",
         "mod_deleted": "Mod deleted: {name}",
+        "restart_needed_title": "Restart required",
+        "restart_needed_text": "Mod changes will take effect after restart.\n\nRestart now?",
+        "restart_now": "🔄 Restart now",
+        "restart_later": "Later",
+        "restarting": "Restarting...",
         "update_available_title": "Update Available",
         "update_available_text": "New version: v{v1}\nYour version: v{v2}\n\nUpdate now?",
         "no_updates_title": "No Updates",
@@ -217,6 +227,7 @@ else:
     SCRIPT_DIR = os.path.dirname(SCRIPT_PATH)
 
 BAT_PATH = os.path.join(SCRIPT_DIR, "update.bat")
+RESTART_BAT_PATH = os.path.join(SCRIPT_DIR, "restart.bat")
 NEW_CODE_PATH = os.path.join(SCRIPT_DIR, "deepseek_new.py")
 
 settings = QSettings("DeepSeekApp", "Config")
@@ -404,6 +415,33 @@ def ensure_icon():
 ensure_icon()
 
 
+# ---------- ПЕРЕЗАПУСК ПРИЛОЖЕНИЯ ----------
+def restart_application():
+    """Перезапускает приложение через временный bat-файл."""
+    try:
+        python_exe = sys.executable
+
+        bat_content = f'''@echo off
+chcp 65001 > nul
+timeout /t 2 /nobreak > nul
+start "" "{python_exe}" "{SCRIPT_PATH}"
+del "%~f0"
+'''
+        with open(RESTART_BAT_PATH, "w", encoding="cp866") as f:
+            f.write(bat_content)
+
+        if sys.platform == "win32":
+            os.startfile(RESTART_BAT_PATH)
+        else:
+            subprocess.Popen(["/bin/bash", RESTART_BAT_PATH])
+
+        QApplication.instance().quit()
+        return True
+    except Exception as e:
+        QMessageBox.critical(None, "Ошибка", f"Не удалось перезапустить:\n{e}")
+        return False
+
+
 # ---------- ВНЕШНЯЯ СТРАНИЦА ----------
 class ExternalPage(QWebEnginePage):
     def __init__(self, profile, parent=None):
@@ -497,6 +535,9 @@ class SettingsDialog(QDialog):
         super().__init__(parent)
         self.setWindowTitle(t("settings_title"))
         self.resize(600, 620)
+
+        # Флаг: были ли изменения в модах (активация/деактивация/загрузка/удаление)
+        self.mods_changed = False
 
         self.setStyleSheet("""
             QDialog { background: #2a2a2a; color: #ddd; font-family: 'Segoe UI', Arial, sans-serif; }
@@ -594,11 +635,26 @@ class SettingsDialog(QDialog):
         cancel_btn.clicked.connect(self.reject)
 
         save_btn = QPushButton(t("save"))
-        save_btn.clicked.connect(self.accept)
+        save_btn.clicked.connect(self.on_save_clicked)
 
         btn_layout.addWidget(cancel_btn)
         btn_layout.addWidget(save_btn)
         layout.addLayout(btn_layout)
+
+    def on_save_clicked(self):
+        """Сохраняет настройки и предлагает перезапуск, если моды изменились."""
+        self.accept()
+
+        # После accept диалог закрывается, показываем запрос на перезапуск
+        if self.mods_changed:
+            reply = QMessageBox.question(
+                self.parent(),
+                t("restart_needed_title"),
+                t("restart_needed_text"),
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+            )
+            if reply == QMessageBox.StandardButton.Yes:
+                restart_application()
 
     def refresh_mods_list(self):
         """Обновляет список модов из папки MODS_DIR."""
@@ -640,9 +696,13 @@ class SettingsDialog(QDialog):
         """Обработчик чекбокса активации мода."""
         active = load_active_mods()
         if state == Qt.CheckState.Checked.value or state == 2:
-            active.add(filename)
+            if filename not in active:
+                active.add(filename)
+                self.mods_changed = True
         else:
-            active.discard(filename)
+            if filename in active:
+                active.discard(filename)
+                self.mods_changed = True
         save_active_mods(active)
 
     def on_mod_clicked(self, item):
@@ -692,6 +752,7 @@ class SettingsDialog(QDialog):
             else:
                 active.add(filename)
             save_active_mods(active)
+            self.mods_changed = True
             self.refresh_mods_list()
 
         elif action == run_action:
@@ -716,6 +777,7 @@ class SettingsDialog(QDialog):
                     os.remove(file_path)
                     active.discard(filename)
                     save_active_mods(active)
+                    self.mods_changed = True
                     self.refresh_mods_list()
                 except Exception as e:
                     QMessageBox.warning(self, "Ошибка", f"{e}")
@@ -736,6 +798,7 @@ class SettingsDialog(QDialog):
         try:
             if os.path.abspath(file_path) != os.path.abspath(dest_path):
                 shutil.copy2(file_path, dest_path)
+            self.mods_changed = True
             self.refresh_mods_list()
             QMessageBox.information(self, "OK", t("mod_loaded").format(name=filename))
         except Exception as e:
