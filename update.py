@@ -1,4 +1,4 @@
-vers 1
+vers 2
 
 code
 
@@ -11,6 +11,7 @@ from datetime import datetime
 from PySide6.QtCore import (
     QUrl, Qt, QTimer, QSettings, QSize, QMimeData, QThread, Signal
 )
+print("пп")
 from PySide6.QtGui import (
     QKeySequence, QShortcut, QAction, QDesktopServices, QIcon,
     QPixmap, QPainter, QColor, QFont, QBrush, QPen, QDrag
