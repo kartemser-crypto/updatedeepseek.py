@@ -4,6 +4,7 @@ code
 
 import sys
 import os
+import shutil
 import subprocess
 import urllib.request
 import re
@@ -19,7 +20,8 @@ from PySide6.QtWidgets import (
     QApplication, QMainWindow, QProgressBar, QToolBar,
     QVBoxLayout, QHBoxLayout, QWidget, QLabel, QPushButton,
     QListWidget, QListWidgetItem, QMenu, QMessageBox, QFrame,
-    QDialog, QComboBox, QFormLayout, QSplitter
+    QDialog, QComboBox, QFormLayout, QSplitter, QFileDialog,
+    QCheckBox
 )
 from PySide6.QtWebEngineWidgets import QWebEngineView
 from PySide6.QtWebEngineCore import (
@@ -56,6 +58,19 @@ TRANSLATIONS = {
         "settings_title": "⚙ Настройки",
         "language": "Язык интерфейса:",
         "toolbar_color": "Цвет полосы:",
+        "downloads_panel_pos": "Панель загрузок:",
+        "mods": "Моды (.py файлы):",
+        "load_mod": "📂 Загрузить мод",
+        "mods_empty": "Нет загруженных модов",
+        "mod_run": "▶ Запустить",
+        "mod_delete": "🗑 Удалить",
+        "mod_show_folder": "📁 Показать в папке",
+        "mod_activate": "✅ Активировать",
+        "mod_deactivate": "⛔ Деактивировать",
+        "mod_applied": "Мод применён!",
+        "mod_error": "Ошибка в моде '{name}':\n{e}",
+        "mod_loaded": "Мод загружен: {name}",
+        "mod_deleted": "Мод удалён: {name}",
         "update_available_title": "Доступно обновление",
         "update_available_text": "Найдена новая версия: v{v1}\nВаша версия: v{v2}\n\nОбновить приложение?\n(Приложение закроется и запустится с новой версией)",
         "no_updates_title": "Обновлений нет",
@@ -89,6 +104,19 @@ TRANSLATIONS = {
         "settings_title": "⚙ Settings",
         "language": "Interface language:",
         "toolbar_color": "Toolbar color:",
+        "downloads_panel_pos": "Downloads panel:",
+        "mods": "Mods (.py files):",
+        "load_mod": "📂 Load mod",
+        "mods_empty": "No mods loaded",
+        "mod_run": "▶ Run",
+        "mod_delete": "🗑 Delete",
+        "mod_show_folder": "📁 Show in folder",
+        "mod_activate": "✅ Activate",
+        "mod_deactivate": "⛔ Deactivate",
+        "mod_applied": "Mod applied!",
+        "mod_error": "Mod error '{name}':\n{e}",
+        "mod_loaded": "Mod loaded: {name}",
+        "mod_deleted": "Mod deleted: {name}",
         "update_available_title": "Update Available",
         "update_available_text": "New version: v{v1}\nYour version: v{v2}\n\nUpdate now?",
         "no_updates_title": "No Updates",
@@ -108,6 +136,7 @@ TRANSLATIONS = {
 
 TOOLBAR_COLORS = {
     "Тёмный (по умолчанию)": "#202123",
+    "Белый": "#f0f0f0",
     "Синий": "#1a3a6e",
     "Зелёный": "#1a5a2a",
     "Красный": "#6e1a1a",
@@ -119,6 +148,7 @@ TOOLBAR_COLORS = {
 
 TOOLBAR_COLORS_EN = {
     "Dark (default)": "#202123",
+    "White": "#f0f0f0",
     "Blue": "#1a3a6e",
     "Green": "#1a5a2a",
     "Red": "#6e1a1a",
@@ -126,6 +156,20 @@ TOOLBAR_COLORS_EN = {
     "Orange": "#6e4a1a",
     "Pink": "#6e1a4a",
     "Teal": "#1a6e6e",
+}
+
+PANEL_POSITIONS = {
+    "left": "Слева (закреплено)",
+    "bottom": "Снизу (закреплено)",
+    "floating": "Отдельное окно",
+    "hidden": "Скрыта",
+}
+
+PANEL_POSITIONS_EN = {
+    "left": "Left (docked)",
+    "bottom": "Bottom (docked)",
+    "floating": "Floating window",
+    "hidden": "Hidden",
 }
 
 
@@ -153,12 +197,15 @@ APP_DIR = os.path.join(os.path.expanduser("~"), ".deepseek_app")
 DOWNLOADS_DIR = os.path.join(APP_DIR, "downloads")
 STORAGE_DIR = os.path.join(APP_DIR, "storage")
 CACHE_DIR = os.path.join(APP_DIR, "cache")
+MODS_DIR = os.path.join(APP_DIR, "mods")
+MODS_CONFIG = os.path.join(MODS_DIR, "active.txt")  # список активных модов
 ICON_PATH = os.path.join(APP_DIR, "icon.png")
 
 os.makedirs(APP_DIR, exist_ok=True)
 os.makedirs(DOWNLOADS_DIR, exist_ok=True)
 os.makedirs(STORAGE_DIR, exist_ok=True)
 os.makedirs(CACHE_DIR, exist_ok=True)
+os.makedirs(MODS_DIR, exist_ok=True)
 
 ICON_URL = "https://avatars.mds.yandex.net/i?id=4fb8d73655c6808470befa2458d32f00_l-5279811-images-thumbs&n=13"
 
@@ -180,13 +227,66 @@ if current_lang not in TRANSLATIONS:
 
 current_color_hex = settings.value("toolbar_color", "#202123")
 
+current_panel_pos = settings.value("panel_position", "left")
+if current_panel_pos not in PANEL_POSITIONS:
+    current_panel_pos = "left"
+
 
 def t(key):
     return TRANSLATIONS.get(current_lang, TRANSLATIONS["ru"]).get(key, key)
 
 
+# ---------- УПРАВЛЕНИЕ АКТИВНЫМИ МОДАМИ ----------
+def load_active_mods():
+    """Возвращает множество имён активных модов."""
+    if not os.path.exists(MODS_CONFIG):
+        return set()
+    try:
+        with open(MODS_CONFIG, "r", encoding="utf-8") as f:
+            return set(line.strip() for line in f if line.strip())
+    except Exception:
+        return set()
+
+
+def save_active_mods(active_set):
+    """Сохраняет список активных модов."""
+    try:
+        with open(MODS_CONFIG, "w", encoding="utf-8") as f:
+            for name in sorted(active_set):
+                f.write(name + "\n")
+    except Exception as e:
+        print(f"[моды] Ошибка сохранения: {e}")
+
+
+def run_mod_file(file_path, app_instance):
+    """Запускает .py файл мода. Возвращает (успех, ошибка)."""
+    try:
+        with open(file_path, "r", encoding="utf-8") as f:
+            code = f.read()
+    except Exception as e:
+        return False, f"Не удалось прочитать: {e}"
+
+    try:
+        exec_globals = {
+            "app": app_instance,
+            "window": app_instance,
+            "settings": settings,
+            "print": print,
+            "QMessageBox": QMessageBox,
+            "QAction": QAction,
+            "__file__": file_path,
+            "__name__": "__mod__",
+        }
+        exec(code, exec_globals)
+        return True, None
+    except Exception as e:
+        import traceback
+        return False, traceback.format_exc()
+
+
 print(f"Папка приложения: {APP_DIR}")
 print(f"Загрузки: {DOWNLOADS_DIR}")
+print(f"Моды: {MODS_DIR}")
 print(f"Текущая версия: {CURRENT_VERSION}")
 
 
@@ -351,12 +451,52 @@ class MyPage(QWebEnginePage):
         return ExternalPage(self.profile(), self)
 
 
+# ---------- МОД-КАРТОЧКА (в списке) ----------
+class ModItemWidget(QWidget):
+    """Виджет-карточка мода с чекбоксом."""
+    def __init__(self, filename, file_path, active=False, parent=None):
+        super().__init__(parent)
+        self.filename = filename
+        self.file_path = file_path
+        self.setStyleSheet("""
+            ModItemWidget { background: #2a2a2a; border-radius: 6px; }
+            ModItemWidget:hover { background: #333; }
+        """)
+
+        layout = QHBoxLayout()
+        layout.setContentsMargins(8, 6, 8, 6)
+        layout.setSpacing(10)
+        self.setLayout(layout)
+
+        self.checkbox = QCheckBox()
+        self.checkbox.setChecked(active)
+        self.checkbox.setStyleSheet("""
+            QCheckBox::indicator {
+                width: 18px; height: 18px;
+                border: 2px solid #666; border-radius: 4px;
+                background: #1e1e1e;
+            }
+            QCheckBox::indicator:checked {
+                background: #4a90e2; border: 2px solid #4a90e2;
+            }
+        """)
+        layout.addWidget(self.checkbox)
+
+        icon_label = QLabel("🐍")
+        icon_label.setStyleSheet("font-size: 18px;")
+        layout.addWidget(icon_label)
+
+        name_label = QLabel(filename)
+        name_label.setStyleSheet("color: #fff; font-size: 12px;")
+        layout.addWidget(name_label, 1)
+
+
 # ---------- ОКНО НАСТРОЕК ----------
 class SettingsDialog(QDialog):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setWindowTitle(t("settings_title"))
-        self.resize(450, 250)
+        self.resize(600, 620)
 
         self.setStyleSheet("""
             QDialog { background: #2a2a2a; color: #ddd; font-family: 'Segoe UI', Arial, sans-serif; }
@@ -373,15 +513,23 @@ class SettingsDialog(QDialog):
                 padding: 8px 16px; font-size: 13px; min-width: 100px;
             }
             QPushButton:hover { background: #5eb3ff; }
+            QListWidget {
+                background: #1e1e1e; border: 1px solid #444;
+                border-radius: 6px; outline: none;
+            }
+            QListWidget::item {
+                background: transparent; border: none; padding: 0px;
+            }
+            QListWidget::item:selected { background: transparent; }
         """)
 
         layout = QVBoxLayout()
         layout.setContentsMargins(20, 20, 20, 20)
-        layout.setSpacing(15)
+        layout.setSpacing(10)
         self.setLayout(layout)
 
         form = QFormLayout()
-        form.setSpacing(15)
+        form.setSpacing(10)
 
         self.lang_combo = QComboBox()
         self.lang_combo.addItem("🇷🇺 Русский", "ru")
@@ -400,14 +548,40 @@ class SettingsDialog(QDialog):
             self.color_combo.setCurrentIndex(idx)
         form.addRow(t("toolbar_color"), self.color_combo)
 
-        layout.addLayout(form)
-        layout.addStretch()
+        self.panel_combo = QComboBox()
+        positions_dict = PANEL_POSITIONS if current_lang == "ru" else PANEL_POSITIONS_EN
+        for key, label in positions_dict.items():
+            self.panel_combo.addItem(label, key)
+        idx = self.panel_combo.findData(current_panel_pos)
+        if idx >= 0:
+            self.panel_combo.setCurrentIndex(idx)
+        form.addRow(t("downloads_panel_pos"), self.panel_combo)
 
+        layout.addLayout(form)
+
+        # ---- МОДЫ ----
+        mods_label = QLabel(t("mods"))
+        mods_label.setStyleSheet("font-size: 13px; padding-top: 6px; font-weight: bold;")
+        layout.addWidget(mods_label)
+
+        # Кнопка "Загрузить мод"
+        load_mod_btn = QPushButton(t("load_mod"))
+        load_mod_btn.clicked.connect(self.load_mod_file)
+        layout.addWidget(load_mod_btn)
+
+        # Список модов
+        self.mods_list = QListWidget()
+        self.mods_list.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+        self.mods_list.customContextMenuRequested.connect(self.show_mod_context_menu)
+        self.mods_list.itemClicked.connect(self.on_mod_clicked)
+        layout.addWidget(self.mods_list, 1)
+
+        # Загружаем список модов
+        self.refresh_mods_list()
+
+        # Кнопки
         btn_layout = QHBoxLayout()
         btn_layout.addStretch()
-
-        save_btn = QPushButton(t("save"))
-        save_btn.clicked.connect(self.accept)
 
         cancel_btn = QPushButton(t("cancel"))
         cancel_btn.setStyleSheet("""
@@ -419,15 +593,162 @@ class SettingsDialog(QDialog):
         """)
         cancel_btn.clicked.connect(self.reject)
 
+        save_btn = QPushButton(t("save"))
+        save_btn.clicked.connect(self.accept)
+
         btn_layout.addWidget(cancel_btn)
         btn_layout.addWidget(save_btn)
         layout.addLayout(btn_layout)
+
+    def refresh_mods_list(self):
+        """Обновляет список модов из папки MODS_DIR."""
+        self.mods_list.clear()
+        active = load_active_mods()
+
+        if not os.path.exists(MODS_DIR):
+            return
+
+        mods = []
+        for f in os.listdir(MODS_DIR):
+            if f.endswith(".py"):
+                mods.append(f)
+
+        mods.sort()
+
+        if not mods:
+            item = QListWidgetItem(t("mods_empty"))
+            item.setFlags(Qt.ItemFlag.NoItemFlags)
+            self.mods_list.addItem(item)
+            return
+
+        for filename in mods:
+            file_path = os.path.join(MODS_DIR, filename)
+            is_active = filename in active
+
+            widget = ModItemWidget(filename, file_path, active=is_active)
+            widget.checkbox.stateChanged.connect(
+                lambda state, fn=filename: self.on_mod_toggle(fn, state)
+            )
+
+            item = QListWidgetItem()
+            item.setData(Qt.ItemDataRole.UserRole, filename)
+            item.setSizeHint(QSize(0, 36))
+            self.mods_list.addItem(item)
+            self.mods_list.setItemWidget(item, widget)
+
+    def on_mod_toggle(self, filename, state):
+        """Обработчик чекбокса активации мода."""
+        active = load_active_mods()
+        if state == Qt.CheckState.Checked.value or state == 2:
+            active.add(filename)
+        else:
+            active.discard(filename)
+        save_active_mods(active)
+
+    def on_mod_clicked(self, item):
+        """Клик по моду — переключение чекбокса."""
+        filename = item.data(Qt.ItemDataRole.UserRole)
+        if not filename:
+            return
+        widget = self.mods_list.itemWidget(item)
+        if widget and hasattr(widget, "checkbox"):
+            widget.checkbox.toggle()
+
+    def show_mod_context_menu(self, pos):
+        """ПКМ по моду — меню действий."""
+        item = self.mods_list.itemAt(pos)
+        if item is None:
+            return
+        filename = item.data(Qt.ItemDataRole.UserRole)
+        if not filename:
+            return
+
+        file_path = os.path.join(MODS_DIR, filename)
+        active = load_active_mods()
+        is_active = filename in active
+
+        menu = QMenu(self)
+        menu.setStyleSheet("""
+            QMenu { background: #2a2a2a; color: #ddd; border: 1px solid #444; border-radius: 6px; padding: 4px; }
+            QMenu::item { padding: 6px 20px; border-radius: 4px; }
+            QMenu::item:selected { background: #444; }
+        """)
+
+        if is_active:
+            toggle_action = menu.addAction(t("mod_deactivate"))
+        else:
+            toggle_action = menu.addAction(t("mod_activate"))
+
+        run_action = menu.addAction(t("mod_run"))
+        show_action = menu.addAction(t("mod_show_folder"))
+        menu.addSeparator()
+        delete_action = menu.addAction(t("mod_delete"))
+
+        action = menu.exec(self.mods_list.mapToGlobal(pos))
+
+        if action == toggle_action:
+            if is_active:
+                active.discard(filename)
+            else:
+                active.add(filename)
+            save_active_mods(active)
+            self.refresh_mods_list()
+
+        elif action == run_action:
+            app_instance = self.parent()
+            ok, err = run_mod_file(file_path, app_instance)
+            if ok:
+                QMessageBox.information(self, "Мод", t("mod_applied"))
+            else:
+                QMessageBox.critical(self, "Ошибка мода", err)
+
+        elif action == show_action:
+            if sys.platform == "win32":
+                subprocess.Popen(["explorer", "/select,", os.path.normpath(file_path)])
+
+        elif action == delete_action:
+            reply = QMessageBox.question(
+                self, "?", f"{filename}?",
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+            )
+            if reply == QMessageBox.StandardButton.Yes:
+                try:
+                    os.remove(file_path)
+                    active.discard(filename)
+                    save_active_mods(active)
+                    self.refresh_mods_list()
+                except Exception as e:
+                    QMessageBox.warning(self, "Ошибка", f"{e}")
+
+    def load_mod_file(self):
+        """Загружает .py файл мода (копирует в папку модов)."""
+        file_path, _ = QFileDialog.getOpenFileName(
+            self, t("load_mod"),
+            os.path.expanduser("~"),
+            "Python файлы (*.py);;Все файлы (*.*)"
+        )
+        if not file_path:
+            return
+
+        filename = os.path.basename(file_path)
+        dest_path = os.path.join(MODS_DIR, filename)
+
+        try:
+            if os.path.abspath(file_path) != os.path.abspath(dest_path):
+                shutil.copy2(file_path, dest_path)
+            self.refresh_mods_list()
+            QMessageBox.information(self, "OK", t("mod_loaded").format(name=filename))
+        except Exception as e:
+            QMessageBox.critical(self, "Ошибка", f"Не удалось загрузить:\n{e}")
 
     def get_language(self):
         return self.lang_combo.currentData()
 
     def get_color(self):
         return self.color_combo.currentData()
+
+    def get_panel_pos(self):
+        return self.panel_combo.currentData()
 
 
 # ---------- КАРТОЧКА ФАЙЛА ----------
@@ -805,23 +1126,17 @@ class DeepSeekApp(QMainWindow):
 
         # Панель загрузок
         self.downloads_panel = DownloadsPanel(self)
-        self.downloads_panel.setVisible(True)
+        self.downloads_panel.setVisible(False)
 
-        # СПЛИТТЕР: [панель загрузок СЛЕВА | браузер СПРАВА]
+        # Сплиттер
         self.splitter = QSplitter(Qt.Orientation.Horizontal)
-        self.splitter.addWidget(self.downloads_panel)   # ЛЕВО — загрузки
-        self.splitter.addWidget(self.browser)            # ПРАВО — браузер
-        self.splitter.setSizes([320, 1080])
         self.splitter.setStyleSheet("""
-            QSplitter::handle {
-                background: #333;
-                width: 4px;
-            }
-            QSplitter::handle:hover {
-                background: #4a90e2;
-            }
+            QSplitter::handle { background: #333; width: 4px; height: 4px; }
+            QSplitter::handle:hover { background: #4a90e2; }
         """)
-        self.setCentralWidget(self.splitter)
+
+        # Применяем позицию панели
+        self.apply_panel_position(current_panel_pos)
 
         # Тулбар
         self.setup_toolbar()
@@ -843,6 +1158,63 @@ class DeepSeekApp(QMainWindow):
 
         # Автопроверка обновлений
         QTimer.singleShot(3000, lambda: self.check_updates(manual=False))
+
+        # Автозагрузка активных модов через 1 секунду
+        QTimer.singleShot(1000, self.load_active_mods_on_start)
+
+    def load_active_mods_on_start(self):
+        """Запускает все активные моды при старте."""
+        active = load_active_mods()
+        if not active:
+            return
+
+        print(f"[моды] Активированных модов: {len(active)}")
+        for mod_name in active:
+            mod_path = os.path.join(MODS_DIR, mod_name)
+            if not os.path.exists(mod_path):
+                print(f"[моды] Не найден: {mod_name}")
+                continue
+
+            print(f"[моды] Запускаю: {mod_name}")
+            ok, err = run_mod_file(mod_path, self)
+            if ok:
+                print(f"[моды] ✅ {mod_name} загружен")
+            else:
+                print(f"[моды] ❌ {mod_name}:\n{err}")
+
+    def apply_panel_position(self, pos):
+        """Применяет позицию панели загрузок."""
+        global current_panel_pos
+        current_panel_pos = pos
+
+        while self.splitter.count() > 0:
+            w = self.splitter.widget(0)
+            w.setParent(None)
+
+        if pos == "left":
+            self.splitter.setOrientation(Qt.Orientation.Horizontal)
+            self.splitter.addWidget(self.downloads_panel)
+            self.splitter.addWidget(self.browser)
+            self.splitter.setSizes([320, 1080])
+            self.downloads_panel.setVisible(False)
+        elif pos == "bottom":
+            self.splitter.setOrientation(Qt.Orientation.Vertical)
+            self.splitter.addWidget(self.browser)
+            self.splitter.addWidget(self.downloads_panel)
+            self.splitter.setSizes([600, 250])
+            self.downloads_panel.setVisible(False)
+        elif pos == "floating":
+            self.splitter.setOrientation(Qt.Orientation.Horizontal)
+            self.splitter.addWidget(self.browser)
+            self.downloads_panel.setParent(None)
+            self.downloads_panel.setWindowTitle(t("downloads_title"))
+            self.downloads_panel.setVisible(False)
+        else:
+            self.splitter.setOrientation(Qt.Orientation.Horizontal)
+            self.splitter.addWidget(self.browser)
+            self.downloads_panel.setVisible(False)
+
+        self.setCentralWidget(self.splitter)
 
     def setup_toolbar(self):
         self.toolbar = QToolBar("Панель")
@@ -883,10 +1255,13 @@ class DeepSeekApp(QMainWindow):
         self.toolbar.addAction(self.toolbar_actions["settings"])
 
     def apply_toolbar_style(self):
+        text_color = "#000" if current_color_hex.lower() in ("#f0f0f0", "#ffffff", "#fff") else "#fff"
+        hover_color = "#d0d0d0" if text_color == "#000" else "#444"
+
         self.toolbar.setStyleSheet(f"""
             QToolBar {{ background: {current_color_hex}; border-bottom: 1px solid #444; padding: 4px; }}
-            QToolButton {{ color: #fff; padding: 6px 12px; border-radius: 4px; }}
-            QToolButton:hover {{ background: #444; }}
+            QToolButton {{ color: {text_color}; padding: 6px 12px; border-radius: 4px; }}
+            QToolButton:hover {{ background: {hover_color}; }}
         """)
 
     def refresh_toolbar_text(self):
@@ -899,7 +1274,12 @@ class DeepSeekApp(QMainWindow):
         self.toolbar_actions["settings"].setText(t("settings"))
 
     def toggle_downloads(self):
-        """Показать/скрыть панель загрузок (слева)."""
+        if current_panel_pos == "floating":
+            self.downloads_panel.setVisible(not self.downloads_panel.isVisible())
+            if self.downloads_panel.isVisible():
+                self.downloads_panel.refresh_from_folder()
+            return
+
         visible = self.downloads_panel.isVisible()
         self.downloads_panel.setVisible(not visible)
         if not visible:
@@ -910,9 +1290,11 @@ class DeepSeekApp(QMainWindow):
         if dlg.exec() == QDialog.DialogCode.Accepted:
             new_lang = dlg.get_language()
             new_color = dlg.get_color()
+            new_panel_pos = dlg.get_panel_pos()
 
             self.settings.setValue("language", new_lang)
             self.settings.setValue("toolbar_color", new_color)
+            self.settings.setValue("panel_position", new_panel_pos)
 
             global current_lang, current_color_hex
             current_lang = new_lang
@@ -920,6 +1302,9 @@ class DeepSeekApp(QMainWindow):
 
             self.apply_toolbar_style()
             self.refresh_toolbar_text()
+
+            if new_panel_pos != current_panel_pos:
+                self.apply_panel_position(new_panel_pos)
 
             QMessageBox.information(self, "OK", "Настройки сохранены.")
 
@@ -1011,10 +1396,6 @@ del "%~f0"
         self.toolbar_actions["downloads"].setText(f"{t('downloads')} ({self.download_count})")
 
         self.downloads_panel.add_download(download, save_path)
-
-        # Показываем панель, если скрыта
-        if not self.downloads_panel.isVisible():
-            self.toggle_downloads()
 
 
 if __name__ == "__main__":
