@@ -19,7 +19,7 @@ from PySide6.QtWidgets import (
     QApplication, QMainWindow, QProgressBar, QToolBar,
     QVBoxLayout, QHBoxLayout, QWidget, QLabel, QPushButton,
     QListWidget, QListWidgetItem, QMenu, QMessageBox, QFrame,
-    QDialog, QComboBox, QDialogButtonBox, QFormLayout
+    QDialog, QComboBox, QFormLayout, QSplitter
 )
 from PySide6.QtWebEngineWidgets import QWebEngineView
 from PySide6.QtWebEngineCore import (
@@ -28,17 +28,15 @@ from PySide6.QtWebEngineCore import (
 )
 
 
-
-
 # ============================================================
 # НАСТРОЙКИ ОБНОВЛЕНИЙ
 # ============================================================
-CURRENT_VERSION = 4
+CURRENT_VERSION = 1
 
 UPDATE_URL = "https://raw.githubusercontent.com/kartemser-crypto/updatedeepseek.py/refs/heads/main/update.py"
 
 
-# ---------- ЯЗЫКИ ИНТЕРФЕЙСА ----------
+# ---------- ЯЗЫКИ ----------
 TRANSLATIONS = {
     "ru": {
         "downloads": "⬇ Загрузки",
@@ -49,7 +47,7 @@ TRANSLATIONS = {
         "check_updates": "🔄 Проверить обновление",
         "settings": "⚙ Настройки",
         "downloads_title": "📥 Загрузки",
-        "downloads_empty": "Нет активных загрузок",
+        "downloads_empty": "Нет загрузок",
         "downloads_done": "Загрузка завершена",
         "download_in_progress": "Загрузка...",
         "open_folder": "📂 Папка",
@@ -67,23 +65,22 @@ TRANSLATIONS = {
         "update_close_title": "Обновление",
         "update_close_text": "Приложение закроется и запустится с новой версией.",
         "update_apply_error": "Не удалось применить обновление:\n{e}\n\nПодробности в консоли.",
-        "ok": "OK",
-        "cancel": "Отмена",
         "save": "Сохранить",
+        "cancel": "Отмена",
         "file_open": "📂 Открыть",
         "file_show": "📁 Показать в папке",
         "file_delete": "🗑 Удалить",
     },
     "en": {
         "downloads": "⬇ Downloads",
-        "downloads_folder": "📂 Downloads Folder",
+        "downloads_folder": "📂 Folder",
         "back": "← Back",
         "reload": "↻ Reload",
         "home": "🏠 DeepSeek",
         "check_updates": "🔄 Check Updates",
         "settings": "⚙ Settings",
         "downloads_title": "📥 Downloads",
-        "downloads_empty": "No active downloads",
+        "downloads_empty": "No downloads",
         "downloads_done": "Download complete",
         "download_in_progress": "Downloading...",
         "open_folder": "📂 Folder",
@@ -93,24 +90,22 @@ TRANSLATIONS = {
         "language": "Interface language:",
         "toolbar_color": "Toolbar color:",
         "update_available_title": "Update Available",
-        "update_available_text": "New version found: v{v1}\nYour version: v{v2}\n\nUpdate the app?\n(App will restart with the new version)",
+        "update_available_text": "New version: v{v1}\nYour version: v{v2}\n\nUpdate now?\n(App will restart)",
         "no_updates_title": "No Updates",
-        "no_updates_text": "You have the latest version (v{v}).",
-        "update_error_title": "Check Error",
+        "no_updates_text": "Latest version (v{v}).",
+        "update_error_title": "Error",
         "update_error_text": "Failed to check updates:\n{err}",
         "update_close_title": "Update",
-        "update_close_text": "The app will close and restart with the new version.",
-        "update_apply_error": "Failed to apply update:\n{e}\n\nDetails in console.",
-        "ok": "OK",
-        "cancel": "Cancel",
+        "update_close_text": "The app will restart.",
+        "update_apply_error": "Failed:\n{e}",
         "save": "Save",
+        "cancel": "Cancel",
         "file_open": "📂 Open",
         "file_show": "📁 Show in folder",
         "file_delete": "🗑 Delete",
     }
 }
 
-# Доступные цвета тулбара
 TOOLBAR_COLORS = {
     "Тёмный (по умолчанию)": "#202123",
     "Синий": "#1a3a6e",
@@ -134,6 +129,53 @@ TOOLBAR_COLORS_EN = {
 }
 
 
+# ---------- ИКОНКИ ПО ТИПУ ФАЙЛА ----------
+def get_file_icon(filename):
+    """Возвращает эмодзи-иконку по расширению файла."""
+    name = filename.lower()
+    ext = os.path.splitext(name)[1]
+
+    if ext == ".py":
+        return "🐍"      # Python
+    if ext == ".bat" or ext == ".cmd":
+        return "⚙"       # Batch
+    if ext == ".exe":
+        return "💻"      # EXE
+    if ext == ".txt":
+        return "📄"      # Текст
+    if ext == ".md":
+        return "📝"      # Markdown
+    if ext == ".pdf":
+        return "📕"      # PDF
+    if ext == ".doc" or ext == ".docx":
+        return "📘"      # Word
+    if ext == ".xls" or ext == ".xlsx":
+        return "📗"      # Excel
+    if ext == ".ppt" or ext == ".pptx":
+        return "📙"      # PowerPoint
+    if ext in (".png", ".jpg", ".jpeg", ".gif", ".bmp", ".webp", ".svg"):
+        return "🖼"       # Картинка
+    if ext in (".mp3", ".wav", ".ogg", ".flac"):
+        return "🎵"      # Аудио
+    if ext in (".mp4", ".avi", ".mkv", ".mov", ".webm"):
+        return "🎬"      # Видео
+    if ext in (".zip", ".rar", ".7z", ".tar", ".gz"):
+        return "📦"      # Архив
+    if ext == ".json":
+        return "🔧"      # JSON
+    if ext == ".xml":
+        return "📋"      # XML
+    if ext == ".html" or ext == ".htm":
+        return "🌐"      # HTML
+    if ext == ".css":
+        return "🎨"      # CSS
+    if ext == ".js":
+        return "📜"      # JS
+    if ext == ".csv":
+        return "📊"      # CSV
+    return "📄"          # По умолчанию
+
+
 # ---------- ПУТИ ----------
 APP_DIR = os.path.join(os.path.expanduser("~"), ".deepseek_app")
 DOWNLOADS_DIR = os.path.join(APP_DIR, "downloads")
@@ -155,37 +197,29 @@ else:
     SCRIPT_PATH = os.path.abspath(__file__)
     SCRIPT_DIR = os.path.dirname(SCRIPT_PATH)
 
-SCRIPT_NAME = os.path.basename(SCRIPT_PATH)
-
 BAT_PATH = os.path.join(SCRIPT_DIR, "update.bat")
 NEW_CODE_PATH = os.path.join(SCRIPT_DIR, "deepseek_new.py")
 
-# Глобальные настройки (загружаются позже)
 settings = QSettings("DeepSeekApp", "Config")
 
-# Текущий язык
 current_lang = settings.value("language", "ru")
 if current_lang not in TRANSLATIONS:
     current_lang = "ru"
 
-# Текущий цвет тулбара
 current_color_hex = settings.value("toolbar_color", "#202123")
 
 
 def t(key):
-    """Перевод по ключу."""
     return TRANSLATIONS.get(current_lang, TRANSLATIONS["ru"]).get(key, key)
 
 
 print(f"Папка приложения: {APP_DIR}")
 print(f"Загрузки: {DOWNLOADS_DIR}")
-print(f"Файл приложения: {SCRIPT_PATH}")
 print(f"Текущая версия: {CURRENT_VERSION}")
-print(f"Язык: {current_lang}")
 
 
 # ============================================================
-# ПАРСИНГ ФОРМАТА ПАСТЫ
+# ПАРСИНГ
 # ============================================================
 def parse_paste(content):
     version_match = re.search(r'^\s*vers\s+(\d+)\s*$', content, re.MULTILINE)
@@ -200,25 +234,23 @@ def parse_paste(content):
     code = content[code_match.end():].lstrip('\n')
     if len(code) < 100:
         return None, None
-
     return version, code
 
 
 # ============================================================
-# ПРОВЕРКА БАТНИКА ПРИ СТАРТЕ
+# БАТНИК ПРИ СТАРТЕ
 # ============================================================
 def check_pending_update():
     if os.path.exists(BAT_PATH):
-        print(f"[обновление] Найден update.bat — применяю")
+        print(f"[обновление] Найден update.bat")
         try:
             if sys.platform == "win32":
                 os.startfile(BAT_PATH)
             else:
                 subprocess.Popen(["/bin/bash", BAT_PATH])
-            print("[обновление] Батник запущен, закрываюсь")
             sys.exit(0)
         except Exception as e:
-            print(f"[обновление] Ошибка запуска батника: {e}")
+            print(f"[обновление] Ошибка: {e}")
             try:
                 os.remove(BAT_PATH)
             except Exception:
@@ -228,7 +260,7 @@ def check_pending_update():
 check_pending_update()
 
 
-# ---------- ПОТОК ПРОВЕРКИ + СКАЧИВАНИЯ ----------
+# ---------- ПОТОК ПРОВЕРКИ ----------
 class UpdateChecker(QThread):
     update_available = Signal(int, str)
     no_update = Signal()
@@ -246,11 +278,10 @@ class UpdateChecker(QThread):
 
             remote_version, new_code = parse_paste(content)
             if remote_version is None:
-                self.error.emit("Не удалось распарсить файл (нужны строки 'vers N' и 'code')")
+                self.error.emit("Не удалось распарсить файл")
                 return
 
             print(f"[обновление] Версия с GitHub: {remote_version}")
-            print(f"[обновление] Длина кода: {len(new_code)} символов")
 
             if remote_version > CURRENT_VERSION:
                 self.update_available.emit(remote_version, new_code)
@@ -265,10 +296,8 @@ class UpdateChecker(QThread):
 def generate_default_icon(path):
     pixmap = QPixmap(256, 256)
     pixmap.fill(QColor(0, 0, 0, 0))
-
     painter = QPainter(pixmap)
     painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-
     from PySide6.QtGui import QRadialGradient
     gradient = QRadialGradient(128, 100, 150)
     gradient.setColorAt(0, QColor(90, 160, 255))
@@ -276,12 +305,10 @@ def generate_default_icon(path):
     painter.setBrush(QBrush(gradient))
     painter.setPen(Qt.PenStyle.NoPen)
     painter.drawEllipse(10, 10, 236, 236)
-
     painter.setPen(QPen(QColor(255, 255, 255)))
     font = QFont("Arial", 130, QFont.Weight.Bold)
     painter.setFont(font)
     painter.drawText(pixmap.rect(), Qt.AlignmentFlag.AlignCenter, "D")
-
     painter.end()
     pixmap.save(path, "PNG")
 
@@ -320,11 +347,10 @@ class ExternalPage(QWebEnginePage):
 # ---------- СТРАНИЦА ----------
 class MyPage(QWebEnginePage):
     def certificateError(self, error: QWebEngineCertificateError) -> bool:
-        print(f"Игнорирую ошибку сертификата: {error.description()}")
         return True
 
     def javaScriptConsoleMessage(self, level, message, line, source):
-        print(f"[JS] {message} (строка {line})")
+        print(f"[JS] {message}")
 
     def featurePermissionRequested(self, securityOrigin, feature):
         if feature in (
@@ -361,32 +387,20 @@ class SettingsDialog(QDialog):
         self.resize(450, 250)
 
         self.setStyleSheet("""
-            QDialog {
-                background: #2a2a2a;
-                color: #ddd;
-                font-family: 'Segoe UI', Arial, sans-serif;
-            }
+            QDialog { background: #2a2a2a; color: #ddd; font-family: 'Segoe UI', Arial, sans-serif; }
             QLabel { color: #ddd; font-size: 13px; }
             QComboBox {
                 background: #3a3a3a; color: #fff;
                 border: 1px solid #555; border-radius: 6px;
                 padding: 8px 12px; font-size: 13px; min-height: 20px;
             }
-            QComboBox:hover { border: 1px solid #4a90e2; }
             QComboBox::drop-down { border: none; width: 20px; }
-            QComboBox QAbstractItemView {
-                background: #3a3a3a; color: #fff;
-                selection-background-color: #4a90e2;
-                border: 1px solid #555;
-            }
             QPushButton {
                 background: #4a90e2; color: #fff;
                 border: none; border-radius: 6px;
-                padding: 8px 16px; font-size: 13px;
-                min-width: 100px;
+                padding: 8px 16px; font-size: 13px; min-width: 100px;
             }
             QPushButton:hover { background: #5eb3ff; }
-            QPushButton:pressed { background: #3a7ac2; }
         """)
 
         layout = QVBoxLayout()
@@ -397,35 +411,26 @@ class SettingsDialog(QDialog):
         form = QFormLayout()
         form.setSpacing(15)
 
-        # Выбор языка
         self.lang_combo = QComboBox()
         self.lang_combo.addItem("🇷🇺 Русский", "ru")
         self.lang_combo.addItem("🇬🇧 English", "en")
-
-        # Устанавливаем текущий язык
         idx = self.lang_combo.findData(current_lang)
         if idx >= 0:
             self.lang_combo.setCurrentIndex(idx)
-
         form.addRow(t("language"), self.lang_combo)
 
-        # Выбор цвета тулбара
         self.color_combo = QComboBox()
         colors_dict = TOOLBAR_COLORS if current_lang == "ru" else TOOLBAR_COLORS_EN
         for name, hex_color in colors_dict.items():
             self.color_combo.addItem(name, hex_color)
-
-        # Устанавливаем текущий цвет
         idx = self.color_combo.findData(current_color_hex)
         if idx >= 0:
             self.color_combo.setCurrentIndex(idx)
-
         form.addRow(t("toolbar_color"), self.color_combo)
 
         layout.addLayout(form)
         layout.addStretch()
 
-        # Кнопки
         btn_layout = QHBoxLayout()
         btn_layout.addStretch()
 
@@ -439,13 +444,11 @@ class SettingsDialog(QDialog):
                 border: none; border-radius: 6px;
                 padding: 8px 16px; font-size: 13px; min-width: 100px;
             }
-            QPushButton:hover { background: #666; }
         """)
         cancel_btn.clicked.connect(self.reject)
 
         btn_layout.addWidget(cancel_btn)
         btn_layout.addWidget(save_btn)
-
         layout.addLayout(btn_layout)
 
     def get_language(self):
@@ -461,13 +464,8 @@ class FileCardWidget(QWidget):
         super().__init__(parent)
         self.file_path = path
         self.setStyleSheet("""
-            FileCardWidget {
-                background: #2a2a2a;
-                border-radius: 8px;
-            }
-            FileCardWidget:hover {
-                background: #333333;
-            }
+            FileCardWidget { background: #2a2a2a; border-radius: 8px; }
+            FileCardWidget:hover { background: #333333; }
         """)
 
         layout = QHBoxLayout()
@@ -475,7 +473,9 @@ class FileCardWidget(QWidget):
         layout.setSpacing(12)
         self.setLayout(layout)
 
-        icon_label = QLabel("📥" if is_downloading else "📄")
+        # Иконка по типу файла или "📥" если скачивается
+        icon_text = "📥" if is_downloading else get_file_icon(filename)
+        icon_label = QLabel(icon_text)
         icon_label.setStyleSheet("font-size: 24px;")
         icon_label.setFixedWidth(32)
         layout.addWidget(icon_label)
@@ -518,34 +518,23 @@ class FileListWidget(QListWidget):
         drag.exec(Qt.DropAction.CopyAction | Qt.DropAction.MoveAction)
 
 
-# ---------- ОКНО ЗАГРУЗОК ----------
-class DownloadsWindow(QWidget):
-    def __init__(self):
-        super().__init__()
-        self.setWindowTitle(t("downloads_title"))
-        self.resize(700, 550)
+# ---------- ПАНЕЛЬ ЗАГРУЗОК (внутри окна) ----------
+class DownloadsPanel(QWidget):
+    def __init__(self, parent=None):
+        super().__init__(parent)
         self.downloads = {}
 
         self.setStyleSheet("""
-            QWidget {
-                background: #1e1e1e;
-                color: #ddd;
-                font-family: 'Segoe UI', Arial, sans-serif;
-            }
+            QWidget { background: #1e1e1e; color: #ddd; font-family: 'Segoe UI', Arial, sans-serif; }
             QLabel { color: #ddd; }
             QPushButton {
                 background: #333; color: #fff;
                 border: none; border-radius: 6px;
-                padding: 8px 14px; font-size: 12px;
+                padding: 6px 12px; font-size: 12px;
             }
             QPushButton:hover { background: #444; }
-            QPushButton:pressed { background: #555; }
-            QListWidget {
-                background: #1e1e1e; border: none; outline: none;
-            }
-            QListWidget::item {
-                background: transparent; border: none; padding: 0px;
-            }
+            QListWidget { background: #1e1e1e; border: none; outline: none; }
+            QListWidget::item { background: transparent; border: none; padding: 0px; }
             QListWidget::item:selected { background: transparent; }
             QProgressBar {
                 background: #2a2a2a; border: none; border-radius: 4px;
@@ -559,18 +548,21 @@ class DownloadsWindow(QWidget):
         """)
 
         layout = QVBoxLayout()
-        layout.setContentsMargins(16, 16, 16, 16)
-        layout.setSpacing(12)
+        layout.setContentsMargins(12, 8, 12, 8)
+        layout.setSpacing(8)
         self.setLayout(layout)
 
+        # Заголовок панели
         header = QHBoxLayout()
+
         title = QLabel(t("downloads_title"))
-        title.setStyleSheet("font-size: 22px; font-weight: bold; color: #fff;")
+        title.setStyleSheet("font-size: 15px; font-weight: bold; color: #fff;")
         header.addWidget(title)
+
         header.addStretch()
 
         refresh_btn = QPushButton(t("refresh"))
-        refresh_btn.setFixedSize(36, 36)
+        refresh_btn.setFixedSize(32, 32)
         refresh_btn.clicked.connect(self.refresh_from_folder)
         header.addWidget(refresh_btn)
 
@@ -579,40 +571,25 @@ class DownloadsWindow(QWidget):
         header.addWidget(open_btn)
 
         clear_btn = QPushButton(t("clear"))
-        clear_btn.setFixedSize(36, 36)
+        clear_btn.setFixedSize(32, 32)
         clear_btn.clicked.connect(self.clear_list)
         header.addWidget(clear_btn)
 
         layout.addLayout(header)
 
-        path_frame = QFrame()
-        path_frame.setStyleSheet("background: #252525; border-radius: 6px; padding: 8px;")
-        path_layout = QHBoxLayout()
-        path_layout.setContentsMargins(10, 6, 10, 6)
-        path_frame.setLayout(path_layout)
-
-        path_icon = QLabel("📁")
-        path_icon.setStyleSheet("font-size: 14px;")
-        path_layout.addWidget(path_icon)
-
-        path_label = QLabel(DOWNLOADS_DIR)
-        path_label.setStyleSheet("color: #888; font-size: 11px;")
-        path_label.setWordWrap(True)
-        path_layout.addWidget(path_label, 1)
-
-        layout.addWidget(path_frame)
-
+        # Список
         self.list_widget = FileListWidget()
         self.list_widget.itemDoubleClicked.connect(self.on_item_double_click)
         self.list_widget.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.list_widget.customContextMenuRequested.connect(self.show_context_menu)
         layout.addWidget(self.list_widget, 1)
 
+        # Прогресс текущей загрузки
         self.progress_container = QFrame()
-        self.progress_container.setStyleSheet("background: #252525; border-radius: 8px; padding: 8px;")
+        self.progress_container.setStyleSheet("background: #252525; border-radius: 6px; padding: 6px;")
         progress_layout = QVBoxLayout()
-        progress_layout.setContentsMargins(10, 8, 10, 8)
-        progress_layout.setSpacing(6)
+        progress_layout.setContentsMargins(8, 6, 8, 6)
+        progress_layout.setSpacing(4)
         self.progress_container.setLayout(progress_layout)
 
         self.progress_label = QLabel(t("downloads_empty"))
@@ -627,10 +604,6 @@ class DownloadsWindow(QWidget):
         self.progress_container.setVisible(False)
         layout.addWidget(self.progress_container)
 
-        self.refresh_from_folder()
-
-    def showEvent(self, event):
-        super().showEvent(event)
         self.refresh_from_folder()
 
     def refresh_from_folder(self):
@@ -659,7 +632,7 @@ class DownloadsWindow(QWidget):
         card = FileCardWidget(filename, f"{size_str}  •  {date_str}", path, is_downloading=False)
         item = QListWidgetItem(self.list_widget)
         item.setData(Qt.ItemDataRole.UserRole, path)
-        item.setSizeHint(QSize(0, 60))
+        item.setSizeHint(QSize(0, 55))
 
         self.list_widget.addItem(item)
         self.list_widget.setItemWidget(item, card)
@@ -684,10 +657,7 @@ class DownloadsWindow(QWidget):
 
         menu = QMenu(self)
         menu.setStyleSheet("""
-            QMenu {
-                background: #2a2a2a; color: #ddd;
-                border: 1px solid #444; border-radius: 6px; padding: 4px;
-            }
+            QMenu { background: #2a2a2a; color: #ddd; border: 1px solid #444; border-radius: 6px; padding: 4px; }
             QMenu::item { padding: 6px 20px; border-radius: 4px; }
             QMenu::item:selected { background: #444; }
         """)
@@ -717,8 +687,10 @@ class DownloadsWindow(QWidget):
                     QMessageBox.warning(self, "Ошибка", f"{e}")
 
     def add_download(self, download: QWebEngineDownloadRequest, path: str):
+        """Добавляет активную загрузку в панель."""
         filename = os.path.basename(path)
 
+        # Убираем старую запись если есть
         for i in range(self.list_widget.count()):
             item = self.list_widget.item(i)
             if item.data(Qt.ItemDataRole.UserRole) == path:
@@ -728,7 +700,7 @@ class DownloadsWindow(QWidget):
         card = FileCardWidget(filename, t("download_in_progress"), path, is_downloading=True)
         item = QListWidgetItem()
         item.setData(Qt.ItemDataRole.UserRole, path)
-        item.setSizeHint(QSize(0, 60))
+        item.setSizeHint(QSize(0, 55))
         self.list_widget.insertItem(0, item)
         self.list_widget.setItemWidget(item, card)
 
@@ -764,6 +736,12 @@ class DownloadsWindow(QWidget):
             item, card, path = self.downloads[download]
             if download.isFinished():
                 total = download.totalBytes()
+                filename = os.path.basename(path)
+
+                # Меняем иконку на реальную
+                icon_label = card.layout().itemAt(0).widget()
+                if icon_label:
+                    icon_label.setText(get_file_icon(filename))
 
                 info_layout = card.layout().itemAt(1).layout()
                 if info_layout and info_layout.count() >= 2:
@@ -771,10 +749,6 @@ class DownloadsWindow(QWidget):
                     if meta:
                         date_str = datetime.now().strftime("%d.%m.%Y %H:%M")
                         meta.setText(f"{self.format_size(total)}  •  {date_str}")
-
-                icon_label = card.layout().itemAt(0).widget()
-                if icon_label:
-                    icon_label.setText("📄")
 
                 self.progress_container.setVisible(False)
                 self.progress_label.setText(t("downloads_done"))
@@ -806,7 +780,7 @@ class DeepSeekApp(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle(f"DeepSeek App — v{CURRENT_VERSION}")
-        self.resize(1200, 800)
+        self.resize(1300, 850)
 
         if os.path.exists(ICON_PATH):
             self.setWindowIcon(QIcon(ICON_PATH))
@@ -823,7 +797,6 @@ class DeepSeekApp(QMainWindow):
         self.profile.setHttpCacheType(QWebEngineProfile.HttpCacheType.DiskHttpCache)
         self.profile.downloadRequested.connect(self.on_download_requested)
 
-        self.download_window = DownloadsWindow()
         self.download_count = 0
 
         # Страница
@@ -839,12 +812,22 @@ class DeepSeekApp(QMainWindow):
         self.browser = QWebEngineView()
         self.browser.setPage(self.page)
         self.browser.setUrl(QUrl("https://chat.deepseek.com/"))
-        self.setCentralWidget(self.browser)
         self.browser.setContextMenuPolicy(Qt.ContextMenuPolicy.DefaultContextMenu)
 
+        # Панель загрузок (внутри окна)
+        self.downloads_panel = DownloadsPanel(self)
+        self.downloads_panel.setMaximumHeight(280)
+        self.downloads_panel.setVisible(False)  # скрыта по умолчанию
+
+        # Сплиттер: браузер + панель загрузок
+        self.splitter = QSplitter(Qt.Orientation.Vertical)
+        self.splitter.addWidget(self.browser)
+        self.splitter.addWidget(self.downloads_panel)
+        self.splitter.setSizes([600, 200])
+        self.splitter.setStyleSheet("QSplitter::handle { background: #333; height: 3px; }")
+        self.setCentralWidget(self.splitter)
+
         # Тулбар
-        self.toolbar = None
-        self.toolbar_actions = {}
         self.setup_toolbar()
 
         # Горячие клавиши
@@ -860,21 +843,21 @@ class DeepSeekApp(QMainWindow):
         QShortcut(QKeySequence("Ctrl+A"), self).activated.connect(
             lambda: self.page.triggerAction(QWebEnginePage.WebAction.SelectAll)
         )
-        QShortcut(QKeySequence("Ctrl+J"), self).activated.connect(self.show_downloads)
+        QShortcut(QKeySequence("Ctrl+J"), self).activated.connect(self.toggle_downloads)
 
-        # Автопроверка обновлений через 3 секунды
+        # Автопроверка обновлений
         QTimer.singleShot(3000, lambda: self.check_updates(manual=False))
 
     def setup_toolbar(self):
         self.toolbar = QToolBar("Панель")
         self.toolbar.setMovable(False)
         self.apply_toolbar_style()
-
         self.addToolBar(self.toolbar)
 
-        # Кнопки тулбара (сохраняем ссылки, чтобы менять текст при смене языка)
+        self.toolbar_actions = {}
+
         self.toolbar_actions["downloads"] = QAction(f"{t('downloads')} (0)", self)
-        self.toolbar_actions["downloads"].triggered.connect(self.show_downloads)
+        self.toolbar_actions["downloads"].triggered.connect(self.toggle_downloads)
         self.toolbar.addAction(self.toolbar_actions["downloads"])
 
         self.toolbar_actions["folder"] = QAction(t("downloads_folder"), self)
@@ -904,7 +887,6 @@ class DeepSeekApp(QMainWindow):
         self.toolbar.addAction(self.toolbar_actions["settings"])
 
     def apply_toolbar_style(self):
-        """Применяет цвет тулбара."""
         self.toolbar.setStyleSheet(f"""
             QToolBar {{ background: {current_color_hex}; border-bottom: 1px solid #444; padding: 4px; }}
             QToolButton {{ color: #fff; padding: 6px 12px; border-radius: 4px; }}
@@ -912,7 +894,6 @@ class DeepSeekApp(QMainWindow):
         """)
 
     def refresh_toolbar_text(self):
-        """Обновляет текст кнопок после смены языка."""
         self.toolbar_actions["downloads"].setText(f"{t('downloads')} ({self.download_count})")
         self.toolbar_actions["folder"].setText(t("downloads_folder"))
         self.toolbar_actions["back"].setText(t("back"))
@@ -920,6 +901,14 @@ class DeepSeekApp(QMainWindow):
         self.toolbar_actions["home"].setText(t("home"))
         self.toolbar_actions["update"].setText(t("check_updates"))
         self.toolbar_actions["settings"].setText(t("settings"))
+
+    def toggle_downloads(self):
+        """Показать/скрыть панель загрузок ВНУТРИ окна."""
+        visible = self.downloads_panel.isVisible()
+        self.downloads_panel.setVisible(not visible)
+        if not visible:
+            # При открытии — обновляем список
+            self.downloads_panel.refresh_from_folder()
 
     def open_settings(self):
         dlg = SettingsDialog(self)
@@ -930,7 +919,6 @@ class DeepSeekApp(QMainWindow):
             self.settings.setValue("language", new_lang)
             self.settings.setValue("toolbar_color", new_color)
 
-            # Применяем сразу
             global current_lang, current_color_hex
             current_lang = new_lang
             current_color_hex = new_color
@@ -939,17 +927,14 @@ class DeepSeekApp(QMainWindow):
             self.refresh_toolbar_text()
 
             QMessageBox.information(
-                self, "OK" if current_lang == "en" else "Готово",
-                "Settings saved. Some elements will update after restart."
-                if current_lang == "en"
-                else "Настройки сохранены. Некоторые элементы обновятся после перезапуска."
+                self, "OK",
+                "Настройки сохранены."
             )
 
-    # ---------- ПРОВЕРКА ОБНОВЛЕНИЙ ----------
+    # ---------- ОБНОВЛЕНИЯ ----------
     def check_updates(self, manual=False):
         if manual:
-            self.setWindowTitle("DeepSeek App — проверка обновлений...")
-
+            self.setWindowTitle("DeepSeek App — проверка...")
         self.update_checker = UpdateChecker()
         self.update_checker.update_available.connect(self.on_update_available)
         self.update_checker.no_update.connect(lambda: self.on_no_update(manual))
@@ -958,15 +943,11 @@ class DeepSeekApp(QMainWindow):
 
     def on_update_available(self, new_version, new_code):
         self.setWindowTitle(f"DeepSeek App — v{CURRENT_VERSION}")
-
         reply = QMessageBox.question(
-            self,
-            t("update_available_title"),
+            self, t("update_available_title"),
             t("update_available_text").format(v1=new_version, v2=CURRENT_VERSION),
-            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-            QMessageBox.StandardButton.Yes
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
         )
-
         if reply == QMessageBox.StandardButton.Yes:
             self.apply_update(new_code)
 
@@ -980,7 +961,6 @@ class DeepSeekApp(QMainWindow):
 
     def on_update_error(self, err, manual):
         self.setWindowTitle(f"DeepSeek App — v{CURRENT_VERSION}")
-        print(f"[обновление] ошибка: {err}")
         if manual:
             QMessageBox.warning(
                 self, t("update_error_title"),
@@ -988,16 +968,11 @@ class DeepSeekApp(QMainWindow):
             )
 
     def apply_update(self, new_code):
-        print(f"[обновление] Применяю обновление, длина кода: {len(new_code)}")
-
         try:
             with open(NEW_CODE_PATH, "w", encoding="utf-8") as f:
                 f.write(new_code)
-            print(f"[обновление] Новый код сохранён: {NEW_CODE_PATH}")
 
             python_exe = sys.executable
-            print(f"[обновление] Python: {python_exe}")
-
             bat_content = f'''@echo off
 chcp 65001 > nul
 timeout /t 3 /nobreak > nul
@@ -1009,8 +984,6 @@ del "%~f0"
             with open(BAT_PATH, "w", encoding="cp866") as f:
                 f.write(bat_content)
 
-            print(f"[обновление] Батник создан: {BAT_PATH}")
-
             QMessageBox.information(self, t("update_close_title"), t("update_close_text"))
 
             if sys.platform == "win32":
@@ -1021,24 +994,9 @@ del "%~f0"
             QApplication.instance().quit()
 
         except Exception as e:
-            import traceback
-            print(f"[обновление] ОШИБКА:\n{traceback.format_exc()}")
-            QMessageBox.critical(
-                self, "Ошибка",
-                t("update_apply_error").format(e=e)
-            )
+            QMessageBox.critical(self, "Ошибка", f"{e}")
 
-    # ---------- ОКНО ЗАГРУЗОК ----------
-    def show_downloads(self):
-        geom = self.settings.value("downloads_window_geometry")
-        if geom:
-            self.download_window.restoreGeometry(geom)
-
-        self.download_window.show()
-        self.download_window.raise_()
-        self.download_window.activateWindow()
-        self.download_window.refresh_from_folder()
-
+    # ---------- ПРОЧЕЕ ----------
     def open_downloads_folder(self):
         if sys.platform == "win32":
             os.startfile(DOWNLOADS_DIR)
@@ -1047,7 +1005,6 @@ del "%~f0"
         else:
             subprocess.Popen(["xdg-open", DOWNLOADS_DIR])
 
-    # ---------- ЗАГРУЗКИ ----------
     def on_download_requested(self, download: QWebEngineDownloadRequest):
         filename = download.downloadFileName() or "file"
         save_path = os.path.join(DOWNLOADS_DIR, filename)
@@ -1061,7 +1018,12 @@ del "%~f0"
         self.download_count += 1
         self.toolbar_actions["downloads"].setText(f"{t('downloads')} ({self.download_count})")
 
-        self.download_window.add_download(download, save_path)
+        # Добавляем в панель и автоматически показываем её
+        self.downloads_panel.add_download(download, save_path)
+
+        # Если панель скрыта — показываем её
+        if not self.downloads_panel.isVisible():
+            self.toggle_downloads()
 
 
 if __name__ == "__main__":
