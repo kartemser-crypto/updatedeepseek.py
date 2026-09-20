@@ -32,15 +32,8 @@ from PySide6.QtWebEngineCore import (
 # ============================================================
 CURRENT_VERSION = 1
 
-# ⚠️ ЗАМЕНИ ЭТУ ССЫЛКУ НА СВОЮ ИЗ PASTEBIN (кнопка "raw") ⚠️
-# Формат пасты:
-#   vers 1
-#
-#   code
-#
-#   import sys
-#   ...весь код...
-UPDATE_URL = "https://pastebin.com/raw/ЗАМЕНИ_НА_ССЫЛКУ"
+# Ссылка на raw-файл update.py в твоём GitHub-репозитории
+UPDATE_URL = "https://raw.githubusercontent.com/kartemser-crypto/updatedeepseek.py/main/update.py"
 
 
 # ---------- ПУТИ ----------
@@ -80,24 +73,21 @@ print(f"Текущая версия: {CURRENT_VERSION}")
 # ============================================================
 def parse_paste(content):
     """
-    Парсит текст пасты в формате:
+    Парсит текст в формате:
         vers N
         code
         <код>
     Возвращает (версия: int, код: str) или (None, None) при ошибке.
     """
-    # Ищем строку "vers N"
     version_match = re.search(r'^\s*vers\s+(\d+)\s*$', content, re.MULTILINE)
     if not version_match:
         return None, None
     version = int(version_match.group(1))
 
-    # Ищем строку "code" (отдельное слово на строке)
     code_match = re.search(r'^\s*code\s*$', content, re.MULTILINE)
     if not code_match:
         return None, None
 
-    # Всё после "code" — это код
     code = content[code_match.end():].lstrip('\n')
 
     if len(code) < 100:
@@ -136,8 +126,8 @@ check_pending_update()
 
 # ---------- ПОТОК ПРОВЕРКИ + СКАЧИВАНИЯ ----------
 class UpdateChecker(QThread):
-    """Скачивает пасту, парсит версию и код."""
-    update_available = Signal(int, str)   # (версия, код)
+    """Скачивает update.py, парсит версию и код."""
+    update_available = Signal(int, str)
     no_update = Signal()
     error = Signal(str)
 
@@ -154,10 +144,10 @@ class UpdateChecker(QThread):
             remote_version, new_code = parse_paste(content)
 
             if remote_version is None:
-                self.error.emit("Не удалось распарсить пасту (нужны строки 'vers N' и 'code')")
+                self.error.emit("Не удалось распарсить файл (нужны строки 'vers N' и 'code')")
                 return
 
-            print(f"[обновление] Версия с Pastebin: {remote_version}")
+            print(f"[обновление] Версия с GitHub: {remote_version}")
             print(f"[обновление] Длина кода: {len(new_code)} символов")
 
             if remote_version > CURRENT_VERSION:
