@@ -1,4 +1,4 @@
-vers 2
+vers 1
 
 code
 
@@ -11,7 +11,6 @@ from datetime import datetime
 from PySide6.QtCore import (
     QUrl, Qt, QTimer, QSettings, QSize, QMimeData, QThread, Signal
 )
-print("пп")
 from PySide6.QtGui import (
     QKeySequence, QShortcut, QAction, QDesktopServices, QIcon,
     QPixmap, QPainter, QColor, QFont, QBrush, QPen, QDrag
@@ -31,10 +30,10 @@ from PySide6.QtWebEngineCore import (
 # ============================================================
 # НАСТРОЙКИ ОБНОВЛЕНИЙ
 # ============================================================
-CURRENT_VERSION = 2
+CURRENT_VERSION = 1
 
-# Ссылка на raw-файл update.py в твоём GitHub-репозитории
-UPDATE_URL = "https://raw.githubusercontent.com/kartemser-crypto/updatedeepseek.py/main/update.py"
+# Ссылка на raw-файл update.py (с refs/heads/ — обходит кэш GitHub)
+UPDATE_URL = "https://raw.githubusercontent.com/kartemser-crypto/updatedeepseek.py/refs/heads/main/update.py"
 
 
 # ---------- ПУТИ ----------
@@ -105,11 +104,7 @@ def check_pending_update():
         print(f"[обновление] Найден update.bat — применяю")
         try:
             if sys.platform == "win32":
-                subprocess.Popen(
-                    ["cmd", "/c", BAT_PATH],
-                    creationflags=subprocess.CREATE_NEW_CONSOLE | subprocess.DETACHED_PROCESS,
-                    cwd=SCRIPT_DIR
-                )
+                os.startfile(BAT_PATH)
             else:
                 subprocess.Popen(["/bin/bash", BAT_PATH])
             print("[обновление] Батник запущен, закрываюсь")
@@ -773,43 +768,52 @@ class DeepSeekApp(QMainWindow):
         print(f"[обновление] Применяю обновление, длина кода: {len(new_code)}")
 
         try:
+            # 1. Сохраняем новый код
             with open(NEW_CODE_PATH, "w", encoding="utf-8") as f:
                 f.write(new_code)
+            print(f"[обновление] Новый код сохранён: {NEW_CODE_PATH}")
 
-            bat_content = f"""@echo off
+            # 2. Путь к python.exe
+            python_exe = sys.executable
+            print(f"[обновление] Python: {python_exe}")
+
+            # 3. Батник
+            bat_content = f'''@echo off
 chcp 65001 > nul
-timeout /t 2 /nobreak > nul
+timeout /t 3 /nobreak > nul
 del "{SCRIPT_PATH}"
 move "{NEW_CODE_PATH}" "{SCRIPT_PATH}"
-start "" pythonw "{SCRIPT_PATH}"
+start "" "{python_exe}" "{SCRIPT_PATH}"
 del "%~f0"
-"""
+'''
             with open(BAT_PATH, "w", encoding="cp866") as f:
                 f.write(bat_content)
 
             print(f"[обновление] Батник создан: {BAT_PATH}")
-            print(f"[обновление] Новый код: {NEW_CODE_PATH}")
+            print(f"[обновление] Содержимое батника:\n{bat_content}")
 
             QMessageBox.information(
                 self, "Обновление",
                 "Приложение закроется и запустится с новой версией."
             )
 
+            # 4. Запускаем батник
             if sys.platform == "win32":
-                subprocess.Popen(
-                    ["cmd", "/c", BAT_PATH],
-                    creationflags=subprocess.CREATE_NEW_CONSOLE | subprocess.DETACHED_PROCESS,
-                    cwd=SCRIPT_DIR
-                )
+                os.startfile(BAT_PATH)
             else:
                 subprocess.Popen(["/bin/bash", BAT_PATH])
 
+            # 5. Закрываем приложение
             QApplication.instance().quit()
 
         except Exception as e:
+            import traceback
+            error_details = traceback.format_exc()
+            print(f"[обновление] ОШИБКА:\n{error_details}")
             QMessageBox.critical(
                 self, "Ошибка",
-                f"Не удалось применить обновление:\n{e}"
+                f"Не удалось применить обновление:\n{e}\n\n"
+                f"Подробности в консоли."
             )
 
     # ---------- ОКНО ЗАГРУЗОК ----------
