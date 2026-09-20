@@ -1,4 +1,4 @@
-vers 8
+vers 10
 
 code
 
@@ -33,7 +33,7 @@ from PySide6.QtWebEngineCore import (
 # ============================================================
 # НАСТРОЙКИ ОБНОВЛЕНИЙ
 # ============================================================
-CURRENT_VERSION = 8
+CURRENT_VERSION = 10
 
 UPDATE_URL = "https://raw.githubusercontent.com/kartemser-crypto/updatedeepseek.py/refs/heads/main/update.py"
 
@@ -59,6 +59,7 @@ TRANSLATIONS = {
         "language": "Язык интерфейса:",
         "toolbar_color": "Цвет полосы:",
         "downloads_panel_pos": "Панель загрузок:",
+        "hide_console": "🖥 Скрывать консоль при запуске",
         "mods": "Моды (.py файлы):",
         "load_mod": "📂 Загрузить мод",
         "mods_empty": "Нет загруженных модов",
@@ -72,7 +73,7 @@ TRANSLATIONS = {
         "mod_loaded": "Мод загружен: {name}",
         "mod_deleted": "Мод удалён: {name}",
         "restart_needed_title": "Требуется перезагрузка",
-        "restart_needed_text": "Изменения в модах вступят в силу после перезапуска приложения.\n\nПерезапустить сейчас?",
+        "restart_needed_text": "Изменения вступят в силу после перезапуска приложения.\n\nПерезапустить сейчас?",
         "restart_now": "🔄 Перезапустить сейчас",
         "restart_later": "Позже",
         "restarting": "Перезапуск...",
@@ -110,6 +111,7 @@ TRANSLATIONS = {
         "language": "Interface language:",
         "toolbar_color": "Toolbar color:",
         "downloads_panel_pos": "Downloads panel:",
+        "hide_console": "🖥 Hide console on startup",
         "mods": "Mods (.py files):",
         "load_mod": "📂 Load mod",
         "mods_empty": "No mods loaded",
@@ -123,7 +125,7 @@ TRANSLATIONS = {
         "mod_loaded": "Mod loaded: {name}",
         "mod_deleted": "Mod deleted: {name}",
         "restart_needed_title": "Restart required",
-        "restart_needed_text": "Mod changes will take effect after restart.\n\nRestart now?",
+        "restart_needed_text": "Changes will take effect after restart.\n\nRestart now?",
         "restart_now": "🔄 Restart now",
         "restart_later": "Later",
         "restarting": "Restarting...",
@@ -208,7 +210,7 @@ DOWNLOADS_DIR = os.path.join(APP_DIR, "downloads")
 STORAGE_DIR = os.path.join(APP_DIR, "storage")
 CACHE_DIR = os.path.join(APP_DIR, "cache")
 MODS_DIR = os.path.join(APP_DIR, "mods")
-MODS_CONFIG = os.path.join(MODS_DIR, "active.txt")  # список активных модов
+MODS_CONFIG = os.path.join(MODS_DIR, "active.txt")
 ICON_PATH = os.path.join(APP_DIR, "icon.png")
 
 os.makedirs(APP_DIR, exist_ok=True)
@@ -228,6 +230,7 @@ else:
 
 BAT_PATH = os.path.join(SCRIPT_DIR, "update.bat")
 RESTART_BAT_PATH = os.path.join(SCRIPT_DIR, "restart.bat")
+HIDE_BAT_PATH = os.path.join(SCRIPT_DIR, "hide_console.bat")
 NEW_CODE_PATH = os.path.join(SCRIPT_DIR, "deepseek_new.py")
 
 settings = QSettings("DeepSeekApp", "Config")
@@ -242,14 +245,47 @@ current_panel_pos = settings.value("panel_position", "left")
 if current_panel_pos not in PANEL_POSITIONS:
     current_panel_pos = "left"
 
+# Храним как строку "true"/"false", чтобы QSettings не путался
+hide_console_setting = settings.value("hide_console", "true")
+hide_console = str(hide_console_setting).lower() in ("true", "1", "yes")
+
 
 def t(key):
     return TRANSLATIONS.get(current_lang, TRANSLATIONS["ru"]).get(key, key)
 
 
+# ---------- СКРЫТИЕ КОНСОЛИ ----------
+def hide_console_window():
+    """Скрывает окно консоли Windows (если оно есть)."""
+    if sys.platform != "win32":
+        return False
+    try:
+        import ctypes
+        kernel32 = ctypes.windll.kernel32
+        user32 = ctypes.windll.user32
+
+        # Получаем HWND текущей консоли
+        hwnd = kernel32.GetConsoleWindow()
+        if not hwnd:
+            # Консоли нет (например, запуск через pythonw.exe)
+            return True
+
+        # Скрываем окно
+        SW_HIDE = 0
+        user32.ShowWindow(hwnd, SW_HIDE)
+        return True
+    except Exception as e:
+        print(f"[hide_console] Ошибка: {e}")
+        return False
+
+
+# Скрываем консоль сразу при старте, если включено
+if hide_console:
+    hide_console_window()
+
+
 # ---------- УПРАВЛЕНИЕ АКТИВНЫМИ МОДАМИ ----------
 def load_active_mods():
-    """Возвращает множество имён активных модов."""
     if not os.path.exists(MODS_CONFIG):
         return set()
     try:
@@ -260,7 +296,6 @@ def load_active_mods():
 
 
 def save_active_mods(active_set):
-    """Сохраняет список активных модов."""
     try:
         with open(MODS_CONFIG, "w", encoding="utf-8") as f:
             for name in sorted(active_set):
@@ -270,7 +305,6 @@ def save_active_mods(active_set):
 
 
 def run_mod_file(file_path, app_instance):
-    """Запускает .py файл мода. Возвращает (успех, ошибка)."""
     try:
         with open(file_path, "r", encoding="utf-8") as f:
             code = f.read()
@@ -299,6 +333,7 @@ print(f"Папка приложения: {APP_DIR}")
 print(f"Загрузки: {DOWNLOADS_DIR}")
 print(f"Моды: {MODS_DIR}")
 print(f"Текущая версия: {CURRENT_VERSION}")
+print(f"Скрывать консоль: {hide_console}")
 
 
 # ============================================================
@@ -417,9 +452,13 @@ ensure_icon()
 
 # ---------- ПЕРЕЗАПУСК ПРИЛОЖЕНИЯ ----------
 def restart_application():
-    """Перезапускает приложение через временный bat-файл."""
     try:
         python_exe = sys.executable
+        # Определяем, запускать через pythonw (без консоли) или python
+        if hide_console:
+            pythonw = os.path.join(os.path.dirname(python_exe), "pythonw.exe")
+            if os.path.exists(pythonw):
+                python_exe = pythonw
 
         bat_content = f'''@echo off
 chcp 65001 > nul
@@ -489,9 +528,8 @@ class MyPage(QWebEnginePage):
         return ExternalPage(self.profile(), self)
 
 
-# ---------- МОД-КАРТОЧКА (в списке) ----------
+# ---------- МОД-КАРТОЧКА ----------
 class ModItemWidget(QWidget):
-    """Виджет-карточка мода с чекбоксом."""
     def __init__(self, filename, file_path, active=False, parent=None):
         super().__init__(parent)
         self.filename = filename
@@ -534,10 +572,11 @@ class SettingsDialog(QDialog):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setWindowTitle(t("settings_title"))
-        self.resize(600, 620)
+        self.resize(600, 660)
 
-        # Флаг: были ли изменения в модах (активация/деактивация/загрузка/удаление)
+        # Флаги: были ли изменения
         self.mods_changed = False
+        self.console_changed = False
 
         self.setStyleSheet("""
             QDialog { background: #2a2a2a; color: #ddd; font-family: 'Segoe UI', Arial, sans-serif; }
@@ -562,6 +601,15 @@ class SettingsDialog(QDialog):
                 background: transparent; border: none; padding: 0px;
             }
             QListWidget::item:selected { background: transparent; }
+            QCheckBox { color: #ddd; font-size: 13px; padding: 6px 0px; }
+            QCheckBox::indicator {
+                width: 18px; height: 18px;
+                border: 2px solid #666; border-radius: 4px;
+                background: #1e1e1e;
+            }
+            QCheckBox::indicator:checked {
+                background: #4a90e2; border: 2px solid #4a90e2;
+            }
         """)
 
         layout = QVBoxLayout()
@@ -600,27 +648,29 @@ class SettingsDialog(QDialog):
 
         layout.addLayout(form)
 
+        # ---- СКРЫТИЕ КОНСОЛИ ----
+        self.console_checkbox = QCheckBox(t("hide_console"))
+        self.console_checkbox.setChecked(hide_console)
+        self.console_checkbox.stateChanged.connect(self.on_console_toggle)
+        layout.addWidget(self.console_checkbox)
+
         # ---- МОДЫ ----
         mods_label = QLabel(t("mods"))
         mods_label.setStyleSheet("font-size: 13px; padding-top: 6px; font-weight: bold;")
         layout.addWidget(mods_label)
 
-        # Кнопка "Загрузить мод"
         load_mod_btn = QPushButton(t("load_mod"))
         load_mod_btn.clicked.connect(self.load_mod_file)
         layout.addWidget(load_mod_btn)
 
-        # Список модов
         self.mods_list = QListWidget()
         self.mods_list.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.mods_list.customContextMenuRequested.connect(self.show_mod_context_menu)
         self.mods_list.itemClicked.connect(self.on_mod_clicked)
         layout.addWidget(self.mods_list, 1)
 
-        # Загружаем список модов
         self.refresh_mods_list()
 
-        # Кнопки
         btn_layout = QHBoxLayout()
         btn_layout.addStretch()
 
@@ -641,12 +691,24 @@ class SettingsDialog(QDialog):
         btn_layout.addWidget(save_btn)
         layout.addLayout(btn_layout)
 
+    def on_console_toggle(self, state):
+        """Галочка скрытия консоли переключена."""
+        new_value = (state == Qt.CheckState.Checked.value or state == 2)
+        if new_value != hide_console:
+            self.console_changed = True
+
     def on_save_clicked(self):
-        """Сохраняет настройки и предлагает перезапуск, если моды изменились."""
+        """Сохраняет настройки и предлагает перезапуск при изменениях."""
+        # Сохраняем галочку консоли
+        new_console = self.console_checkbox.isChecked()
+        settings.setValue("hide_console", "true" if new_console else "false")
+
+        global hide_console
+        hide_console = new_console
+
         self.accept()
 
-        # После accept диалог закрывается, показываем запрос на перезапуск
-        if self.mods_changed:
+        if self.mods_changed or self.console_changed:
             reply = QMessageBox.question(
                 self.parent(),
                 t("restart_needed_title"),
@@ -657,7 +719,6 @@ class SettingsDialog(QDialog):
                 restart_application()
 
     def refresh_mods_list(self):
-        """Обновляет список модов из папки MODS_DIR."""
         self.mods_list.clear()
         active = load_active_mods()
 
@@ -693,7 +754,6 @@ class SettingsDialog(QDialog):
             self.mods_list.setItemWidget(item, widget)
 
     def on_mod_toggle(self, filename, state):
-        """Обработчик чекбокса активации мода."""
         active = load_active_mods()
         if state == Qt.CheckState.Checked.value or state == 2:
             if filename not in active:
@@ -706,7 +766,6 @@ class SettingsDialog(QDialog):
         save_active_mods(active)
 
     def on_mod_clicked(self, item):
-        """Клик по моду — переключение чекбокса."""
         filename = item.data(Qt.ItemDataRole.UserRole)
         if not filename:
             return
@@ -715,7 +774,6 @@ class SettingsDialog(QDialog):
             widget.checkbox.toggle()
 
     def show_mod_context_menu(self, pos):
-        """ПКМ по моду — меню действий."""
         item = self.mods_list.itemAt(pos)
         if item is None:
             return
@@ -783,7 +841,6 @@ class SettingsDialog(QDialog):
                     QMessageBox.warning(self, "Ошибка", f"{e}")
 
     def load_mod_file(self):
-        """Загружает .py файл мода (копирует в папку модов)."""
         file_path, _ = QFileDialog.getOpenFileName(
             self, t("load_mod"),
             os.path.expanduser("~"),
@@ -1226,7 +1283,6 @@ class DeepSeekApp(QMainWindow):
         QTimer.singleShot(1000, self.load_active_mods_on_start)
 
     def load_active_mods_on_start(self):
-        """Запускает все активные моды при старте."""
         active = load_active_mods()
         if not active:
             return
@@ -1246,7 +1302,6 @@ class DeepSeekApp(QMainWindow):
                 print(f"[моды] ❌ {mod_name}:\n{err}")
 
     def apply_panel_position(self, pos):
-        """Применяет позицию панели загрузок."""
         global current_panel_pos
         current_panel_pos = pos
 
@@ -1413,6 +1468,12 @@ class DeepSeekApp(QMainWindow):
                 f.write(new_code)
 
             python_exe = sys.executable
+            # Если скрываем консоль — запускаем через pythonw
+            if hide_console:
+                pythonw = os.path.join(os.path.dirname(python_exe), "pythonw.exe")
+                if os.path.exists(pythonw):
+                    python_exe = pythonw
+
             bat_content = f'''@echo off
 chcp 65001 > nul
 timeout /t 3 /nobreak > nul
